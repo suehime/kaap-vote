@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>연결 진단</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .res { margin-top: 14px; padding: 16px 18px; border-radius: 10px; border: 1px solid var(--line);
+         background: var(--card); font-size: 15px; line-height: 1.65; word-break: keep-all; }
+  .res.ok  { background: #EEF4EE; border-color: #C7DCC7; }
+  .res.bad { background: #F8EEEC; border-color: #E4C6C0; }
+  .res h3  { margin: 0 0 6px; font-size: 15px; }
+  code { background: #EDEEEB; padding: 2px 6px; border-radius: 4px;
+         font-size: 13px; word-break: break-all; font-family: ui-monospace, Menlo, monospace; }
+  ol { padding-left: 20px; } ol li { margin: 6px 0; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <p class="eyebrow">설치 확인</p>
+  <h1 class="claim" style="font-size:21px">Supabase에 연결되는지 확인합니다.</h1>
+
+  <div class="res" style="margin-top:20px">
+    <h3>config.js에 적힌 주소</h3>
+    <code id="url">—</code>
+  </div>
+
+  <div id="out"></div>
+
+  <p class="tiny" style="margin-top:28px">확인이 끝나면 닫으셔도 됩니다. 학회 당일에는 쓰지 않습니다.</p>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+const out = document.getElementById("out");
+document.getElementById("url").textContent = SB || "(비어 있음)";
+
+const say = (ok, title, body) => {
+  const d = document.createElement("div");
+  d.className = "res " + (ok ? "ok" : "bad");
+  d.innerHTML = `<h3>${ok ? "정상" : "문제"} · ${title}</h3>${body}`;
+  out.appendChild(d);
+};
+
+(async function run() {
+
+  if (!SB || SB.includes("여기에") || !KEY || KEY.includes("여기에")) {
+    return say(false, "주소나 키가 아직 비어 있습니다",
+      `<p><code>config.js</code>의 <code>SUPABASE_URL</code>과 <code>SUPABASE_KEY</code>를 채우지 않으셨습니다.
+       Supabase 프로젝트 → Settings → API Keys 에서 <b>Project URL</b>과 <b>Publishable key</b>를 복사해 넣으신 뒤
+       다시 배포해 주십시오.</p>`);
+  }
+
+  if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(SB)) {
+    say(false, "주소 모양이 다릅니다",
+      `<p>Supabase 주소는 <code>https://xxxxx.supabase.co</code> 형태입니다.
+       끝에 슬래시나 <code>/rest/v1</code> 같은 경로가 붙어 있으면 지워 주십시오.</p>`);
+  }
+
+  if (/^sb_secret_/.test(KEY)) {
+    say(false, "Secret key를 넣으셨습니다",
+      `<p><b>즉시 바꾸셔야 합니다.</b> <code>sb_secret_…</code> 키는 RLS를 무시하므로
+       공개 페이지에 넣으면 데이터베이스 전체가 열립니다.
+       Settings → API Keys 의 <b>Publishable key</b>(<code>sb_publishable_…</code>)로 바꾸시고,
+       Secret key는 같은 화면에서 다시 발급하십시오.</p>`);
+  }
+
+  if (KEY.length < 40) {
+    say(false, "키가 너무 짧습니다",
+      `<p><b>Publishable key</b>(<code>sb_publishable_…</code>)를 복사하셨는지 확인해 주십시오.
+       Project URL이나 프로젝트 ID를 잘못 넣으신 경우가 많습니다.</p>`);
+  }
+
+  /* 1. 테이블 읽기 */
+  let readOK = false;
+  try {
+    const rows = await sbGet("state?id=eq.1&select=session_idx,phase,is_open,panel");
+    if (rows.length === 0) {
+      say(false, "state 테이블이 비어 있습니다",
+        `<p>테이블은 있는데 기본 행이 없습니다. SQL Editor에서 아래를 실행해 주십시오.</p>
+         <p><code>insert into public.state (id) values (1) on conflict (id) do nothing;</code></p>`);
+    } else {
+      readOK = true;
+      say(true, "읽기 성공", `<p>현재 상태: <code>${JSON.stringify(rows[0])}</code></p>`);
+    }
+  } catch (e) {
+    const m = String(e.message);
+    if (/42P01|does not exist|relation/i.test(m)) {
+      say(false, "테이블이 없습니다",
+        `<p><code>schema.sql</code> 내용을 Supabase의 <b>SQL Editor</b>에 붙여넣고 Run 하셔야 합니다.
+         아직 안 하셨다면 지금 하십시오. 한 번이면 됩니다.</p>`);
+    } else if (/401|Invalid API key|JWT/i.test(m)) {
+      say(false, "키가 거부되었습니다 (401)",
+        `<p>키가 틀렸거나, 프로젝트 주소와 짝이 맞지 않습니다.
+         Settings → API 에서 둘을 같이 다시 복사해 주십시오.</p>`);
+    } else if (/permission denied|42501/i.test(m)) {
+      say(false, "권한이 막혀 있습니다",
+        `<p>RLS 정책이 적용되지 않았습니다. <code>schema.sql</code>의 아래 부분이 실행되었는지 확인해 주십시오.</p>
+         <p><code>create policy state_open on public.state for all to anon using (true) with check (true);</code></p>`);
+    } else {
+      say(false, "읽기 실패", `<p><code>${m.slice(0, 260)}</code></p>`);
+    }
+  }
+
+  /* 2. 투표 쓰기 */
+  if (readOK) {
+    try {
+      await castVote(9, "pre", "selftest", "기타", "1년 미만", 3);
+      const v = await getVotes(9);
+      if (v.pre.selftest) {
+        await sbDelete("votes?session_idx=eq.9&voter=eq.selftest");
+        say(true, "쓰기 성공",
+          `<p>연결이 모두 정상입니다. 다음은 <a href="loadtest.html">부하 테스트</a>이고,
+           그 다음 <a href="host.html">진행자 화면</a>을 열어 휴대폰으로 시험해 보십시오.</p>`);
+      } else {
+        say(false, "쓴 표를 다시 읽지 못했습니다",
+          `<p>읽기 정책은 있는데 쓰기가 반영되지 않았습니다. votes 테이블의 RLS 정책을 확인해 주십시오.</p>`);
+      }
+    } catch (e) {
+      const m = String(e.message);
+      say(false, "투표 쓰기 실패",
+        /permission denied|42501/i.test(m)
+          ? `<p>votes 테이블에 쓰기 권한이 없습니다. <code>schema.sql</code>의 <code>votes_open</code> 정책을 실행해 주십시오.</p>`
+          : `<p><code>${m.slice(0, 260)}</code></p>`);
+    }
+  }
+
+  say(true, "참고 · 키는 공개됩니다",
+    `<p><code>config.js</code>는 누구나 열어볼 수 있어 Publishable key와 진행자 비밀번호도 보입니다.
+     Publishable key는 원래 브라우저에 노출되는 용도이고, RLS로 접근 범위가 정해집니다.
+     실제 방어선은 <b>진행자 주소를 화면에 띄우지 않는 것</b>이며,
+     학회가 끝나면 <code>schema.sql</code> 맨 아래 '잠그기'를 실행하십시오.</p>`);
+})();
+</script>
+</body>
+</html>

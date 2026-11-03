@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>진행자</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="gate" class="wrap" style="padding-top:80px">
+  <p class="eyebrow">진행자 화면</p>
+  <h1 class="claim" style="font-size:20px">비밀번호를 입력하십시오.</h1>
+  <input id="pin" type="password" inputmode="numeric" autocomplete="off"
+    style="width:100%;margin-top:18px;padding:14px;font-size:17px;font-family:var(--sans);
+           border:1.5px solid var(--line);border-radius:10px">
+  <button class="btn wide" id="enter" style="margin-top:10px">들어가기</button>
+  <p class="sub" id="gateMsg" style="margin-top:10px"></p>
+</div>
+
+<div id="app" class="host" hidden>
+  <div class="status" style="margin-bottom:16px">
+    <span class="dot" id="dot"></span><span id="statusText">연결 중</span>
+    <span style="margin-left:auto"><a href="screen.html" target="_blank" style="color:var(--ink-soft);font-size:13px">프로젝터 화면 열기 ↗</a></span>
+  </div>
+
+  <div class="grid">
+
+    <div class="card">
+      <div class="lab">세션</div>
+      <div id="sessBtns"></div>
+
+      <div class="lab">투표</div>
+      <button class="btn" id="openPre">사전 투표 열기</button>
+      <button class="btn" id="openPost">사후 투표 열기</button>
+      <button class="btn" id="close">투표 마감</button>
+
+      <div class="lab">프로젝터에 띄울 화면</div>
+      <button class="btn" data-v="qr">참여 안내 · QR</button>
+      <button class="btn" data-v="prompt">명제 · 응답 수</button>
+      <button class="btn" data-v="compare">결과 · 사전 대 사후</button>
+      <button class="btn" data-v="flow">결과 · 이동 흐름</button>
+      <button class="btn" data-v="role">결과 · 직군별</button>
+      <button class="btn" data-v="exp">결과 · 경력별</button>
+
+      <div class="lab">초기화</div>
+      <button class="btn danger" id="resetOne">이 세션 투표 지우기</button>
+      <button class="btn danger" id="resetAll">전체 투표 지우기</button>
+    </div>
+
+    <div>
+      <div class="card" style="margin-bottom:20px">
+        <div class="lab" id="curLab">현재</div>
+        <p class="claim" id="curClaim" style="font-size:19px;margin-top:6px"></p>
+        <div style="display:flex;gap:34px;margin-top:20px;flex-wrap:wrap">
+          <div><div class="lab" style="margin:0 0 4px">사전 응답</div><div class="big" id="nPre">0</div></div>
+          <div><div class="lab" style="margin:0 0 4px">사후 응답</div><div class="big" id="nPost">0</div></div>
+          <div><div class="lab" style="margin:0 0 4px">양쪽 다 응답</div><div class="big" id="nPair">0</div></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="lab">사전 대 사후 · 위가 발표 전, 아래가 발표 후</div>
+        <div class="bars" id="cmp" style="margin-top:14px"></div>
+        <hr class="rule">
+        <div style="display:flex;gap:30px;flex-wrap:wrap">
+          <div><div class="lab" style="margin:0 0 4px">찬성 비율</div>
+               <div style="font-size:19px;font-weight:700" id="dPro">—</div></div>
+          <div><div class="lab" style="margin:0 0 4px">평균</div>
+               <div style="font-size:19px;font-weight:700" id="dMean">—</div></div>
+          <div><div class="lab" style="margin:0 0 4px">찬성 ↔ 반대</div>
+               <div style="font-size:19px;font-weight:700" id="dFlip">—</div></div>
+          <div><div class="lab" style="margin:0 0 4px">의견 숙고</div>
+               <div style="font-size:19px;font-weight:700" id="dSoft">—</div></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="lab">이동 흐름</div>
+        <div id="flow" style="margin-top:10px"></div>
+        <div class="legend">
+          <span><i class="swatch" style="background:var(--pro)"></i>찬성 쪽으로 이동</span>
+          <span><i class="swatch" style="background:var(--con)"></i>반대 쪽으로 이동</span>
+          <span><i class="swatch" style="background:var(--flat)"></i>변화 없음</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="lab">직군별 · 발표 후 찬성 비율과 변화</div>
+        <table class="rolegrid" style="margin-top:12px">
+          <thead><tr><th>직군</th><th>인원</th><th>사전 찬성</th><th>사후 찬성</th><th>이동</th></tr></thead>
+          <tbody id="roleBody"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="lab">경력별 · 발표 후 찬성 비율과 변화</div>
+        <table class="rolegrid" style="margin-top:12px">
+          <thead><tr><th>중독 임상 경력</th><th>인원</th><th>사전 찬성</th><th>사후 찬성</th><th>이동</th></tr></thead>
+          <tbody id="expBody"></tbody>
+        </table>
+        <p class="sub" style="font-size:12.5px;margin:12px 0 0">5명 미만인 줄은 흐리게 표시됩니다.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let state = { session: 0, phase: "idle", open: false, view: "qr" };
+
+function unlock() {
+  if ($("pin").value !== C.PIN) { $("gateMsg").textContent = "비밀번호가 맞지 않습니다."; return; }
+  sessionStorage.setItem("dv_host", "1");
+  $("gate").hidden = true; $("app").hidden = false; boot();
+}
+$("enter").onclick = unlock;
+$("pin").onkeydown = (e) => { if (e.key === "Enter") unlock(); };
+if (sessionStorage.getItem("dv_host")) { $("gate").hidden = true; $("app").hidden = false; }
+
+$("sessBtns").innerHTML = C.SESSIONS.map((s, i) =>
+  `<button class="btn" data-s="${i}">세션 ${i+1} — ${s.title}</button>`).join("");
+
+async function push(patch) {
+  Object.assign(state, patch);
+  paintControls();
+  try { await setState(patch); } catch (e) { alert("전송 실패: 통신을 확인하십시오."); }
+}
+
+$("sessBtns").querySelectorAll("[data-s]").forEach(b =>
+  b.onclick = () => push({ session: +b.dataset.s, phase: "idle", open: false, view: "qr" }));
+$("openPre").onclick  = () => push({ phase: "pre",  open: true, view: "prompt" });
+$("openPost").onclick = () => push({ phase: "post", open: true, view: "prompt" });
+$("close").onclick    = () => push({ open: false });
+document.querySelectorAll("[data-v]").forEach(b => b.onclick = () => push({ view: b.dataset.v }));
+
+$("resetOne").onclick = async () => {
+  if (!confirm(`세션 ${state.session+1}의 투표를 모두 지웁니다. 되돌릴 수 없습니다.`)) return;
+  try { await resetVotes(state.session); refresh(); } catch (e) { alert("삭제 실패: " + e.message); }
+};
+$("resetAll").onclick = async () => {
+  if (!confirm("세 세션의 투표를 전부 지웁니다. 되돌릴 수 없습니다.")) return;
+  if (!confirm("정말 지우시겠습니까?")) return;
+  try { await resetVotes(null); refresh(); } catch (e) { alert("삭제 실패: " + e.message); }
+};
+
+function paintControls() {
+  document.querySelectorAll("[data-s]").forEach(b =>
+    b.classList.toggle("on", +b.dataset.s === state.session));
+  document.querySelectorAll("[data-v]").forEach(b =>
+    b.classList.toggle("on", b.dataset.v === state.view));
+  $("openPre").classList.toggle("on",  state.open && state.phase === "pre");
+  $("openPost").classList.toggle("on", state.open && state.phase === "post");
+  const s = C.SESSIONS[state.session];
+  $("curLab").textContent = `세션 ${state.session+1} · ${s.title}` +
+    (state.open ? ` · ${state.phase === "pre" ? "사전" : "사후"} 투표 진행 중` : " · 투표 마감");
+  $("curClaim").textContent = s.claim;
+}
+
+async function refresh() {
+  try {
+    const all = await getVotes(state.session);
+    $("dot").className = "dot live"; $("statusText").textContent = "연결됨";
+    const pre = all.pre, post = all.post;
+    const tp = tally(pre), tq = tally(post), mv = movement(pre, post);
+
+    $("nPre").textContent = tp.n; $("nPost").textContent = tq.n; $("nPair").textContent = mv.paired;
+    compareRows($("cmp"), tp, tq);
+
+    const dPro = tq.proPct - tp.proPct, dMean = tq.mean - tp.mean;
+    $("dPro").innerHTML  = `${pct(tp.proPct)}% → ${pct(tq.proPct)}% <span class="delta ${dPro>0?"up":dPro<0?"down":""}">${dPro>0?"+":""}${pct(dPro)}p</span>`;
+    $("dMean").innerHTML = `${pct(tp.mean)} → ${pct(tq.mean)} <span class="delta ${dMean>0?"up":dMean<0?"down":""}">${dMean>0?"+":""}${pct(dMean)}</span>`;
+    $("dFlip").textContent = mv.paired ? `${mv.flipped}명 · ${pct(mv.flipped/mv.paired*100)}%` : "—";
+    $("dSoft").textContent = mv.paired ? `${mv.softened}명 · ${pct(mv.softened/mv.paired*100)}%` : "—";
+
+    ribbon($("flow"), mv);
+
+    $("roleBody").innerHTML = breakdownRows(pre, post, "j", C.ROLES);
+    $("expBody").innerHTML  = breakdownRows(pre, post, "y", C.YEARS);
+  } catch (e) {
+    $("dot").className = "dot"; $("statusText").textContent = "연결 끊김 — 다시 시도 중";
+  }
+}
+
+async function boot() {
+  try { state = await getState(); } catch (e) {}
+  paintControls(); refresh(); setInterval(refresh, 2500);
+}
+if (sessionStorage.getItem("dv_host")) boot();
+</script>
+</body>
+</html>

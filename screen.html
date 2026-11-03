@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>프로젝터</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+<main class="screen">
+
+  <section id="vQr" hidden>
+    <p class="eyebrow" id="evt"></p>
+    <h1 class="claim" style="margin-bottom:clamp(22px,3.2vh,42px)">
+      휴대폰으로 투표에 참여해주십시오 <span style="white-space:nowrap">(QR 접속)</span>
+    </h1>
+    <div style="display:flex;gap:clamp(26px,4vw,62px);align-items:center;flex-wrap:wrap">
+      <div class="qrbox" id="qr"></div>
+      <div style="flex:1 1 18em;min-width:0">
+        <p class="sub" style="font-size:clamp(18px,1.7vw,28px);margin:0 0 10px">
+          카메라로 코드를 비추거나 아래 주소로 접속하십시오.
+        </p>
+        <p class="url" id="url"></p>
+        <p class="sub" style="font-size:clamp(19px,1.8vw,30px);line-height:1.55;margin-top:clamp(18px,2.6vh,34px);max-width:26em;text-wrap:balance">
+          한 번만 들어오시면 세 세션 내내 같은 화면을 씁니다.<br>
+          <b style="color:var(--ink);font-weight:700">세션 내내 링크에서 나가지 마십시오.</b>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section id="vPrompt" hidden>
+    <p class="eyebrow" id="pLab"></p>
+    <h1 class="claim" id="pClaim"></h1>
+    <p class="sub" id="pNote" style="font-size:19px;margin-top:20px" hidden></p>
+    <div style="margin-top:44px">
+      <p class="eyebrow">지금까지 응답</p>
+      <div class="count" id="pCount">0</div>
+    </div>
+  </section>
+
+  <section id="vCompare" hidden>
+    <p class="eyebrow" id="cLab"></p>
+    <h1 class="claim" id="cClaim" style="font-size:clamp(20px,2.4vw,32px)"></h1>
+    <p class="charttitle">발표 전후 비율 변화</p>
+    <div class="bars" id="cBars" style="margin-top:14px"></div>
+    <div class="legend" style="margin-top:14px">
+      <span><i class="swatch pre"></i>연한 막대 · 발표 전</span>
+      <span><i class="swatch post"></i>진한 막대 · 발표 후</span>
+    </div>
+    <div style="display:flex;gap:56px;margin-top:clamp(20px,3vh,36px);flex-wrap:wrap">
+      <div><p class="eyebrow">찬성 비율</p><div style="font-size:clamp(24px,3vw,40px);font-weight:700" id="cPro">—</div></div>
+      <div><p class="eyebrow">평균</p><div style="font-size:clamp(24px,3vw,40px);font-weight:700" id="cMean">—</div></div>
+    </div>
+  </section>
+
+  <section id="vFlow" hidden>
+    <p class="eyebrow" id="fLab"></p>
+    <h1 class="claim" style="font-size:clamp(20px,2.4vw,32px)">발표 전후 의견의 이동 추이</h1>
+    <div id="fRibbon" style="margin-top:20px;max-width:min(1100px,76vw)"></div>
+    <div style="display:flex;gap:56px;margin-top:14px;flex-wrap:wrap">
+      <div><p class="eyebrow">찬성 ↔ 반대</p><div style="font-size:clamp(22px,2.6vw,34px);font-weight:700" id="fFlip">—</div></div>
+      <div><p class="eyebrow">의견 숙고</p><div style="font-size:clamp(22px,2.6vw,34px);font-weight:700" id="fSoft">—</div></div>
+      <div><p class="eyebrow">변화 없음</p><div style="font-size:clamp(22px,2.6vw,34px);font-weight:700" id="fSame">—</div></div>
+    </div>
+  </section>
+
+  <section id="vRole" hidden>
+    <p class="eyebrow" id="rLab"></p>
+    <h1 class="claim" style="font-size:clamp(20px,2.4vw,32px)">직군별 결과</h1>
+    <table class="rolegrid" style="margin-top:26px;font-size:clamp(15px,1.5vw,21px)">
+      <thead><tr><th>직군</th><th>인원</th><th>발표 전 찬성</th><th>발표 후 찬성</th><th>이동</th></tr></thead>
+      <tbody id="rBody"></tbody>
+    </table>
+  </section>
+
+  <section id="vExp" hidden>
+    <p class="eyebrow" id="eLab"></p>
+    <h1 class="claim" style="font-size:clamp(20px,2.4vw,32px)">경력별 결과</h1>
+    <table class="rolegrid" style="margin-top:26px;font-size:clamp(15px,1.5vw,21px)">
+      <thead><tr><th>중독 임상 경력</th><th>인원</th><th>발표 전 찬성</th><th>발표 후 찬성</th><th>이동</th></tr></thead>
+      <tbody id="eBody"></tbody>
+    </table>
+  </section>
+
+  <section id="vIdle" hidden>
+    <p class="eyebrow" id="evt2"></p>
+    <h1 class="claim">잠시 후 시작합니다.</h1>
+  </section>
+
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const joinURL = location.href.replace(/screen\.html.*$/, "");
+$("url").textContent = joinURL.replace(/^https?:\/\//, "").replace(/\/$/, "");
+$("evt").textContent = C.EVENT; $("evt2").textContent = C.EVENT;
+
+/* 화면 크기에 맞춰 QR을 최대한 크게. 창 크기가 바뀌면 다시 그립니다. */
+function drawQR() {
+  const side = Math.round(Math.max(260, Math.min(
+    520, window.innerWidth * 0.34, window.innerHeight * 0.62)));
+  $("qr").innerHTML = "";
+  try { new QRCode($("qr"), { text: joinURL, width: side, height: side, correctLevel: QRCode.CorrectLevel.M }); }
+  catch (e) { $("qr").innerHTML = `<p class="sub" style="line-height:1.5">QR을 만들지 못했습니다.<br>주소를 직접 안내해 주십시오.</p>`; }
+}
+drawQR();
+let qrTimer;
+addEventListener("resize", () => { clearTimeout(qrTimer); qrTimer = setTimeout(drawQR, 250); });
+
+let state = { session: 0, phase: "idle", open: false, view: "qr" };
+
+function show(id) {
+  ["vQr","vPrompt","vCompare","vFlow","vRole","vExp","vIdle"].forEach(v => $(v).hidden = (v !== id));
+}
+
+async function tick() {
+  try {
+    state = await getState();
+    const ses = C.SESSIONS[state.session];
+    const lab = `세션 ${state.session+1}`;
+
+    if (state.view === "qr") { show("vQr"); return; }
+
+    const all = await getVotes(state.session);
+    const pre = all.pre, post = all.post;
+    const tp = tally(pre), tq = tally(post), mv = movement(pre, post);
+
+    if (state.view === "prompt") {
+      show("vPrompt");
+      $("pLab").textContent = `${lab} · ${state.phase === "post" ? "발표 후" : "발표 전"}`;
+      $("pClaim").textContent = ses.claim;
+      if (ses.note && state.phase === "pre") { $("pNote").hidden = false; $("pNote").textContent = ses.note; }
+      else $("pNote").hidden = true;
+      $("pCount").textContent = state.phase === "post" ? tq.n : tp.n;
+      return;
+    }
+
+    if (state.view === "compare") {
+      show("vCompare");
+      $("cLab").textContent = lab; $("cClaim").textContent = ses.claim;
+      compareRows($("cBars"), tp, tq);
+      const dP = tq.proPct - tp.proPct, dM = tq.mean - tp.mean;
+      $("cPro").innerHTML  = `${pct(tp.proPct)}% → ${pct(tq.proPct)}% <span class="delta ${dP>0?"up":dP<0?"down":""}">${dP>0?"+":""}${pct(dP)}p</span>`;
+      $("cMean").innerHTML = `${pct(tp.mean)} → ${pct(tq.mean)} <span class="delta ${dM>0?"up":dM<0?"down":""}">${dM>0?"+":""}${pct(dM)}</span>`;
+      return;
+    }
+
+    if (state.view === "flow") {
+      show("vFlow"); $("fLab").textContent = lab;
+      ribbon($("fRibbon"), mv);
+      const p = mv.paired || 1;
+      $("fFlip").textContent = `${mv.flipped}명 · ${pct(mv.flipped/p*100)}%`;
+      $("fSoft").textContent = `${mv.softened}명 · ${pct(mv.softened/p*100)}%`;
+      $("fSame").textContent = `${mv.same}명 · ${pct(mv.same/p*100)}%`;
+      return;
+    }
+
+    if (state.view === "role") {
+      show("vRole"); $("rLab").textContent = lab;
+      $("rBody").innerHTML = breakdownRows(pre, post, "j", C.ROLES);
+      return;
+    }
+
+    if (state.view === "exp") {
+      show("vExp"); $("eLab").textContent = lab;
+      $("eBody").innerHTML = breakdownRows(pre, post, "y", C.YEARS);
+      return;
+    }
+    show("vIdle");
+  } catch (e) { /* 통신 실패 시 직전 화면 유지 */ }
+}
+tick(); setInterval(tick, 2000);
+</script>
+</body>
+</html>

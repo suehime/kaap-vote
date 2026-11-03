@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>디베이트 투표</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="wrap">
+
+  <div class="status"><span class="dot" id="dot"></span><span id="statusText">연결 중</span></div>
+
+  <section id="roleStep" hidden>
+    <p class="eyebrow" style="margin-top:26px;text-transform:none;letter-spacing:.04em" id="evtRole"></p>
+    <h1 class="claim" style="font-size:20px">선생님의 직군을 선택해 주십시오.</h1>
+    <p class="sub" style="margin-top:12px">투표는 익명입니다. 결과를 나눠 보는 데만 씁니다.</p>
+    <div class="roles" id="roles"></div>
+    <p class="tiny" style="margin-top:22px">1 / 2</p>
+  </section>
+
+  <section id="expStep" hidden>
+    <p class="eyebrow" style="margin-top:26px;text-transform:none;letter-spacing:.04em" id="evtExp"></p>
+    <h1 class="claim" style="font-size:20px">중독 임상 경력은 어느 정도이십니까?</h1>
+    <p class="sub" style="margin-top:12px">중독 환자를 직접 보신 기간으로 답해 주십시오.</p>
+    <div class="roles" id="years"></div>
+    <p class="tiny" style="margin-top:22px">
+      2 / 2 · <button id="backRole" type="button">직군 다시 선택</button>
+    </p>
+  </section>
+
+  <section id="waitStep" hidden>
+    <p class="eyebrow" style="margin-top:26px">대기 중</p>
+    <h1 class="claim" style="font-size:20px">진행자가 투표를 열면 여기에 나타납니다.</h1>
+    <p class="sub" style="margin-top:14px">이 화면을 닫지 말고 그대로 두십시오. 세 세션 내내 같은 화면을 씁니다.</p>
+  </section>
+
+  <section id="voteStep" hidden>
+    <p class="eyebrow" style="margin-top:26px" id="phaseLabel"></p>
+    <h1 class="claim" id="claim"></h1>
+    <p class="sub" id="note" style="margin-top:12px" hidden></p>
+    <div class="scale" id="scale"></div>
+    <div class="done" id="done" hidden></div>
+  </section>
+
+  <p class="tiny" id="tinyBar" hidden>
+    <span id="roleNow"></span>
+    <button id="changeRole" type="button">다시 선택</button>
+  </p>
+
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const me = voterId();
+let state = null, myVote = null, busy = false;
+$("evtRole").textContent = C.EVENT;
+$("evtExp").textContent = C.EVENT;
+
+function paintChips(el, items, current, pick) {
+  el.innerHTML = items.map(v =>
+    `<button class="role" type="button" data-v="${v}" aria-pressed="${current === v}">${v}</button>`).join("");
+  el.querySelectorAll(".role").forEach(b => b.onclick = () => { pick(b.dataset.v); render(); });
+}
+
+$("changeRole").onclick = () => {
+  localStorage.removeItem("dv_role"); localStorage.removeItem("dv_years"); render();
+};
+$("backRole").onclick = () => { localStorage.removeItem("dv_role"); render(); };
+
+function paintScale() {
+  $("scale").innerHTML = C.SCALE.map((label, i) =>
+    `<button class="opt" type="button" data-c="${i+1}" data-side="${sideOf(i)}" data-w="${weightOf(i)}"
+       aria-pressed="${myVote === i+1}"><span class="pip"></span>${label}</button>`).join("");
+  $("scale").querySelectorAll(".opt").forEach(b => b.onclick = () => cast(+b.dataset.c));
+}
+
+const voteKey = () => `dv_${state.session}_${state.phase}`;
+
+async function cast(c) {
+  if (busy || !state) return;
+  busy = true;
+  const prev = myVote;
+  myVote = c; paintScale();
+  try {
+    await castVote(state.session, state.phase, me, myRole(), myYears(), c);
+    localStorage.setItem(voteKey(), String(c));
+    $("done").hidden = false;
+    $("done").textContent = "투표되었습니다. 마감 전까지는 다시 눌러 바꾸실 수 있습니다.";
+  } catch (e) {
+    myVote = prev; paintScale();
+    $("done").hidden = false;
+    $("done").textContent = "전송에 실패했습니다. 통신 상태를 확인하고 다시 눌러 주십시오.";
+  }
+  busy = false;
+}
+
+function render() {
+  const open = state && state.phase !== "idle" && state.open;
+  const done = myRole() && myYears();          // 두 질문을 다 답했는가
+
+  $("roleStep").hidden = !!myRole();
+  $("expStep").hidden  = !myRole() || !!myYears();
+  $("waitStep").hidden = !done || open;
+  $("voteStep").hidden = !done || !open;
+  $("tinyBar").hidden  = !done;
+  $("roleNow").textContent = done ? `${myRole()} · ${myYears()} · ` : "";
+
+  if (!myRole()) { paintChips($("roles"), C.ROLES, myRole(), setRole); return; }
+  if (!myYears()) { paintChips($("years"), C.YEARS, myYears(), setYears); return; }
+  if (!open) return;
+
+  const s = C.SESSIONS[state.session];
+  $("phaseLabel").textContent =
+    `세션 ${state.session + 1} · ${state.phase === "pre" ? "발표 전" : "발표 후"}`;
+  $("claim").textContent = s.claim;
+  if (s.note && state.phase === "pre") { $("note").hidden = false; $("note").textContent = s.note; }
+  else $("note").hidden = true;
+
+  const saved = localStorage.getItem(voteKey());
+  myVote = saved ? +saved : null;
+  $("done").hidden = !myVote;
+  if (myVote) $("done").textContent = "투표되었습니다. 마감 전까지는 다시 눌러 바꾸실 수 있습니다.";
+  paintScale();
+}
+
+let lastKey = "";
+async function poll() {
+  try {
+    const s = await getState();
+    $("dot").className = "dot live";
+    $("statusText").textContent = "연결됨";
+    const key = `${s.session}|${s.phase}|${s.open}`;
+    if (key !== lastKey) { lastKey = key; state = s; render(); }
+    else state = s;
+  } catch (e) {
+    $("dot").className = "dot";
+    $("statusText").innerHTML =
+      `연결 끊김 — 다시 시도 중 <a href="check.html" style="color:var(--ink-soft)">원인 확인</a>`;
+  }
+}
+poll(); setInterval(poll, 2500);
+</script>
+</body>
+</html>
