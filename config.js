@@ -11,7 +11,7 @@ window.CONFIG = {
   SUPABASE_KEY: "sb_publishable_aAiOqx7UbQ18rMm3vM3hlQ_KDYqW-dc",
 
   /* 진행자 화면 비밀번호 — 꼭 바꾸십시오 */
-  PIN: "123456",
+  PIN: "1234",
 
   /* ───────── 아래는 필요하실 때만 ───────── */
 
