@@ -1,0 +1,6 @@
+{
+  "name": "reading-log",
+  "private": true,
+  "type": "module",
+  "description": "책의 계보를 기록하는 독서로그 웹앱"
+}

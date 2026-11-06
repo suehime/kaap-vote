@@ -1,0 +1,9 @@
+{
+  "rewrites": [
+    { "source": "/u/:handle", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/sync-blogs", "schedule": "0 21 * * *" },
+    { "path": "/api/keepalive", "schedule": "0 9 * * *" }
+  ]
+}
